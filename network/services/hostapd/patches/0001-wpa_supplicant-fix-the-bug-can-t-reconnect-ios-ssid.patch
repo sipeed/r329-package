@@ -1,0 +1,25 @@
+From c166507ce852be8720c3cb7cc6e72c0a1a5fc687 Mon Sep 17 00:00:00 2001
+From: flyranchao <flyranchao@allwinnertech.com>
+Date: Wed, 23 Dec 2020 16:11:55 +0800
+Subject: [PATCH] wpa_supplicant: fix the bug can't reconnect ios ssid.
+
+Signed-off-by: flyranchao <flyranchao@allwinnertech.com>
+---
+ wpa_supplicant/config_file.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/wpa_supplicant/config_file.c b/wpa_supplicant/config_file.c
+index d811bec..4981df2 100755
+--- a/wpa_supplicant/config_file.c
++++ b/wpa_supplicant/config_file.c
+@@ -1403,6 +1403,7 @@ int wpa_config_write(struct wpa_supplicant *wpa_s, const char *name, struct wpa_
+ 		}
+ 		fprintf(f, "\nnetwork={\n");
+ 		wpa_config_write_network(f, ssid);
++		ssid->bssid_set = 0;
+ 		fprintf(f, "}\n");
+ 
+ 	}
+-- 
+2.29.0
+

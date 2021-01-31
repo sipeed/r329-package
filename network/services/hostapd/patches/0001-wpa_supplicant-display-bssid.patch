@@ -1,0 +1,184 @@
+From 8ec4154c2d7677110776e14f5a5f24eaed500320 Mon Sep 17 00:00:00 2001
+From: flyranchao <flyranchao@allwinnertech.com>
+Date: Sun, 15 Nov 2020 19:39:03 +0800
+Subject: [PATCH] wpa_supplicant: display bssid.
+
+	add bssid for file wpa_supplicant.conf's network.
+
+Signed-off-by: flyranchao <flyranchao@allwinnertech.com>
+---
+ wpa_supplicant/config.h         |  3 ++-
+ wpa_supplicant/config_file.c    | 15 ++++++++++++---
+ wpa_supplicant/ctrl_iface.c     |  5 ++---
+ wpa_supplicant/eapol_test.c     |  2 +-
+ wpa_supplicant/wpas_glue.c      |  4 ++--
+ wpa_supplicant/wps_supplicant.c |  4 ++--
+ 6 files changed, 21 insertions(+), 12 deletions(-)
+
+diff --git a/wpa_supplicant/config.h b/wpa_supplicant/config.h
+index 48e64be..9cf7bc6 100755
+--- a/wpa_supplicant/config.h
++++ b/wpa_supplicant/config.h
+@@ -44,6 +44,7 @@
+ 
+ #include "config_ssid.h"
+ #include "wps/wps.h"
++#include "wpa_supplicant_i.h"
+ #include "common/ieee802_11_defs.h"
+ #include "common/ieee802_11_common.h"
+ 
+@@ -1421,6 +1422,6 @@ struct wpa_config * wpa_config_read(const char *name, struct wpa_config *cfgp);
+  *
+  * Each configuration backend needs to implement this function.
+  */
+-int wpa_config_write(const char *name, struct wpa_config *config);
++int wpa_config_write(struct wpa_supplicant *wpa_s, const char *name, struct wpa_config *config);
+ 
+ #endif /* CONFIG_H */
+diff --git a/wpa_supplicant/config_file.c b/wpa_supplicant/config_file.c
+index 7ae1654..d811bec 100755
+--- a/wpa_supplicant/config_file.c
++++ b/wpa_supplicant/config_file.c
+@@ -22,6 +22,7 @@
+ #include "p2p/p2p.h"
+ #include "eap_peer/eap_methods.h"
+ #include "eap_peer/eap.h"
++#include "wpa_supplicant_i.h"
+ 
+ 
+ static int newline_terminated(const char *buf, size_t buflen)
+@@ -672,6 +673,7 @@ static void wpa_config_write_network(FILE *f, struct wpa_ssid *ssid)
+ #define INT_DEF(t, def) write_int(f, #t, ssid->t, def)
+ #define INT_DEFe(t, def) write_int(f, #t, ssid->eap.t, def)
+ 
++	ssid->bssid_set = 1;
+ 	STR(ssid);
+ 	INT(scan_ssid);
+ 	write_bssid(f, ssid);
+@@ -1349,7 +1351,7 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
+ #endif /* CONFIG_NO_CONFIG_WRITE */
+ 
+ 
+-int wpa_config_write(const char *name, struct wpa_config *config)
++int wpa_config_write(struct wpa_supplicant *wpa_s, const char *name, struct wpa_config *config)
+ {
+ #ifndef CONFIG_NO_CONFIG_WRITE
+ 	FILE *f;
+@@ -1367,7 +1369,6 @@ int wpa_config_write(const char *name, struct wpa_config *config)
+ 		os_snprintf(tmp_name, tmp_len, "%s.tmp", name);
+ 		name = tmp_name;
+ 	}
+-
+ 	wpa_printf(MSG_DEBUG, "Writing configuration file '%s'", name);
+ 
+ 	f = fopen(name, "w");
+@@ -1378,7 +1379,6 @@ int wpa_config_write(const char *name, struct wpa_config *config)
+ 	}
+ 
+ 	wpa_config_write_global(f, config);
+-
+ 	for (cred = config->cred; cred; cred = cred->next) {
+ 		if (cred->temporary)
+ 			continue;
+@@ -1393,9 +1393,18 @@ int wpa_config_write(const char *name, struct wpa_config *config)
+ 		if (wpa_key_mgmt_wpa_psk(ssid->key_mgmt) && !ssid->psk_set &&
+ 		    !ssid->passphrase)
+ 			continue; /* do not save invalid network */
++		if (ssid == wpa_s->current_ssid){
++			ssid->bssid[0] = wpa_s->bssid[0];
++			ssid->bssid[1] = wpa_s->bssid[1];
++			ssid->bssid[2] = wpa_s->bssid[2];
++			ssid->bssid[3] = wpa_s->bssid[3];
++			ssid->bssid[4] = wpa_s->bssid[4];
++			ssid->bssid[5] = wpa_s->bssid[5];
++		}
+ 		fprintf(f, "\nnetwork={\n");
+ 		wpa_config_write_network(f, ssid);
+ 		fprintf(f, "}\n");
++
+ 	}
+ 
+ #ifndef CONFIG_NO_CONFIG_BLOBS
+diff --git a/wpa_supplicant/ctrl_iface.c b/wpa_supplicant/ctrl_iface.c
+index d814fdf..7226c71 100755
+--- a/wpa_supplicant/ctrl_iface.c
++++ b/wpa_supplicant/ctrl_iface.c
+@@ -3441,8 +3441,7 @@ static int wpa_supplicant_ctrl_iface_save_config(struct wpa_supplicant *wpa_s)
+ 			   "to update configuration (update_config=0)");
+ 		return -1;
+ 	}
+-
+-	ret = wpa_config_write(wpa_s->confname, wpa_s->conf);
++	ret = wpa_config_write(wpa_s, wpa_s->confname, wpa_s->conf);
+ 	if (ret) {
+ 		wpa_printf(MSG_DEBUG, "CTRL_IFACE: SAVE_CONFIG - Failed to "
+ 			   "update configuration");
+@@ -9829,7 +9828,7 @@ static int wpas_global_ctrl_iface_save_config(struct wpa_global *global)
+ 			continue;
+ 		}
+ 
+-		if (wpa_config_write(wpa_s->confname, wpa_s->conf)) {
++		if (wpa_config_write(wpa_s, wpa_s->confname, wpa_s->conf)) {
+ 			wpa_dbg(wpa_s, MSG_DEBUG, "CTRL_IFACE: SAVE_CONFIG - Failed to update configuration");
+ 			ret = 1;
+ 		} else {
+diff --git a/wpa_supplicant/eapol_test.c b/wpa_supplicant/eapol_test.c
+index 6548bd1..7acee70 100755
+--- a/wpa_supplicant/eapol_test.c
++++ b/wpa_supplicant/eapol_test.c
+@@ -1530,7 +1530,7 @@ int main(int argc, char *argv[])
+ 		ret = -3;
+ 
+ 	if (save_config)
+-		wpa_config_write(conf, wpa_s.conf);
++		wpa_config_write(&wpa_s, conf, wpa_s.conf);
+ 
+ 	test_eapol_clean(&eapol_test, &wpa_s);
+ 
+diff --git a/wpa_supplicant/wpas_glue.c b/wpa_supplicant/wpas_glue.c
+index f84c8b9..b090e0c 100755
+--- a/wpa_supplicant/wpas_glue.c
++++ b/wpa_supplicant/wpas_glue.c
+@@ -37,7 +37,7 @@ static void wpa_supplicant_set_config_blob(void *ctx,
+ 	struct wpa_supplicant *wpa_s = ctx;
+ 	wpa_config_set_blob(wpa_s->conf, blob);
+ 	if (wpa_s->conf->update_config) {
+-		int ret = wpa_config_write(wpa_s->confname, wpa_s->conf);
++		int ret = wpa_config_write(wpa_s, wpa_s->confname, wpa_s->conf);
+ 		if (ret) {
+ 			wpa_printf(MSG_DEBUG, "Failed to update config after "
+ 				   "blob set");
+@@ -950,7 +950,7 @@ static void wpa_supplicant_set_anon_id(void *ctx, const u8 *id, size_t len)
+ 	}
+ 
+ 	if (wpa_s->conf->update_config) {
+-		res = wpa_config_write(wpa_s->confname, wpa_s->conf);
++		res = wpa_config_write(wpa_s, wpa_s->confname, wpa_s->conf);
+ 		if (res) {
+ 			wpa_printf(MSG_DEBUG, "Failed to update config after "
+ 				   "anonymous_id update");
+diff --git a/wpa_supplicant/wps_supplicant.c b/wpa_supplicant/wps_supplicant.c
+index 74a420c..aeeb9e7 100755
+--- a/wpa_supplicant/wps_supplicant.c
++++ b/wpa_supplicant/wps_supplicant.c
+@@ -555,7 +555,7 @@ static int wpa_supplicant_wps_cred(void *ctx,
+ 
+ #ifndef CONFIG_NO_CONFIG_WRITE
+ 	if (wpa_s->conf->update_config &&
+-	    wpa_config_write(wpa_s->confname, wpa_s->conf)) {
++	    wpa_config_write(wpa_s, wpa_s->confname, wpa_s->conf)) {
+ 		wpa_printf(MSG_DEBUG, "WPS: Failed to update configuration");
+ 		return -1;
+ 	}
+@@ -666,7 +666,7 @@ static void wpas_wps_reenable_networks(struct wpa_supplicant *wpa_s)
+ 	if (changed) {
+ #ifndef CONFIG_NO_CONFIG_WRITE
+ 		if (wpa_s->conf->update_config &&
+-		    wpa_config_write(wpa_s->confname, wpa_s->conf)) {
++		    wpa_config_write(wpa_s, wpa_s->confname, wpa_s->conf)) {
+ 			wpa_printf(MSG_DEBUG, "WPS: Failed to update "
+ 				   "configuration");
+ 		}
+-- 
+2.28.0
+

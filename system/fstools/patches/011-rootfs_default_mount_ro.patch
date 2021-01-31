@@ -1,0 +1,29 @@
+Index: fstools-2016-01-10/mount_root.c
+===================================================================
+--- fstools-2016-01-10.orig/mount_root.c
++++ fstools-2016-01-10/mount_root.c
+@@ -37,7 +37,11 @@ start(int argc, char *argv[1])
+ 		root = volume_find("rootfs");
+ 		volume_init(root);
+ 		ULOG_NOTE("mounting /dev/root\n");
++#ifdef ROOTFS_RW
+		mount("/dev/root", "/", NULL, MS_NOATIME | MS_REMOUNT, 0);
++#else
++ 		mount("/dev/root", "/", NULL, MS_RDONLY | MS_NOATIME | MS_REMOUNT, 0);
++#endif
+ 	}
+ 
+ 	/*
+--- fstools-2016-01-10.orig/CMakeLists.txt
++++ fstools-2016-01-10/CMakeLists.txt
+@@ -61,6 +61,10 @@ IF(DEFINED CMAKE_UBIFS_EXTROOT)
+ ELSE(DEFINED CMAKE_UBIFS_EXTROOT)
+ 	TARGET_LINK_LIBRARIES(block blkid-tiny uci ubox blobmsg_json)
+ ENDIF(DEFINED CMAKE_UBIFS_EXTROOT)
++IF(DEFINED CMAKE_ROOTFS_RW)
++	ADD_DEFINITIONS(-DROOTFS_RW)
++ENDIF(DEFINED CMAKE_ROOTFS_RW)
++
+ INSTALL(TARGETS block RUNTIME DESTINATION sbin)
+ 
+ ADD_EXECUTABLE(jffs2reset jffs2reset.c)

@@ -1,0 +1,164 @@
+From 3354b2a8ef1e5a6ef817dc89eeeb48d4e4fc0633 Mon Sep 17 00:00:00 2001
+From: chengweipeng <chengweipeng@allwinnertech.com>
+Date: Tue, 16 Jun 2020 16:39:52 +0800
+Subject: [PATCH] python: fix import _ssl error
+
+Signed-off-by: chengweipeng <chengweipeng@allwinnertech.com>
+---
+ Modules/_ssl.c | 50 ++++++++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 46 insertions(+), 4 deletions(-)
+
+diff --git a/Modules/_ssl.c b/Modules/_ssl.c
+index 8648267..1b21e82 100644
+--- a/Modules/_ssl.c
++++ b/Modules/_ssl.c
+@@ -997,8 +997,13 @@ _get_peer_alt_names (X509 *certificate) {
+                     goto fail;
+                 }
+                 PyTuple_SET_ITEM(t, 0, v);
++# if OPENSSL_API_COMPAT < 0x10100000L
+                 v = PyUnicode_FromStringAndSize((char *)ASN1_STRING_data(as),
+                                                 ASN1_STRING_length(as));
++# else
++                v = PyUnicode_FromStringAndSize(ASN1_STRING_get0_data(as),
++                                                ASN1_STRING_length(as));
++# endif
+                 if (v == NULL) {
+                     Py_DECREF(t);
+                     goto fail;
+@@ -1300,7 +1305,11 @@ _decode_certificate(X509 *certificate) {
+     Py_DECREF(sn_obj);
+ 
+     (void) BIO_reset(biobuf);
++# if OPENSSL_API_COMPAT < 0x10100000L
+     notBefore = X509_get_notBefore(certificate);
++# else
++    notBefore = X509_getm_notBefore(certificate);
++# endif
+     ASN1_TIME_print(biobuf, notBefore);
+     len = BIO_gets(biobuf, buf, sizeof(buf)-1);
+     if (len < 0) {
+@@ -1317,7 +1326,11 @@ _decode_certificate(X509 *certificate) {
+     Py_DECREF(pnotBefore);
+ 
+     (void) BIO_reset(biobuf);
++# if OPENSSL_API_COMPAT < 0x10100000L
+     notAfter = X509_get_notAfter(certificate);
++# else
++    notAfter = X509_getm_notAfter(certificate);
++# endif
+     ASN1_TIME_print(biobuf, notAfter);
+     len = BIO_gets(biobuf, buf, sizeof(buf)-1);
+     if (len < 0) {
+@@ -2335,24 +2348,30 @@ _ssl__SSLContext_impl(PyTypeObject *type, int proto_version)
+ #endif
+ 
+     PySSL_BEGIN_ALLOW_THREADS
+-    if (proto_version == PY_SSL_VERSION_TLS1)
++    if (proto_version == PY_SSL_VERSION_TLS)
++        ctx = SSL_CTX_new(TLS_method());
++#ifndef OPENSSL_NO_TLS1_METHOD
++    else if (proto_version == PY_SSL_VERSION_TLS1)
+         ctx = SSL_CTX_new(TLSv1_method());
++#endif
++#ifndef OPENSSL_NO_TLS1_1_METHOD
+ #if HAVE_TLSv1_2
+     else if (proto_version == PY_SSL_VERSION_TLS1_1)
+         ctx = SSL_CTX_new(TLSv1_1_method());
+     else if (proto_version == PY_SSL_VERSION_TLS1_2)
+         ctx = SSL_CTX_new(TLSv1_2_method());
+ #endif
++#endif
++#ifndef OPENSSL_NO_SSL3_METHOD
+ #ifndef OPENSSL_NO_SSL3
+     else if (proto_version == PY_SSL_VERSION_SSL3)
+         ctx = SSL_CTX_new(SSLv3_method());
+ #endif
++#endif
+ #ifndef OPENSSL_NO_SSL2
+     else if (proto_version == PY_SSL_VERSION_SSL2)
+         ctx = SSL_CTX_new(SSLv2_method());
+ #endif
+-    else if (proto_version == PY_SSL_VERSION_TLS)
+-        ctx = SSL_CTX_new(TLS_method());
+     else
+         proto_version = -1;
+     PySSL_END_ALLOW_THREADS
+@@ -2403,7 +2422,11 @@ _ssl__SSLContext_impl(PyTypeObject *type, int proto_version)
+        conservative and assume it wasn't fixed until release. We do this check
+        at runtime to avoid problems from the dynamic linker.
+        See #25672 for more on this. */
++# if OPENSSL_API_COMPAT < 0x10100000L
+     libver = SSLeay();
++# else
++    libver = OpenSSL_version_num();
++# endif
+     if (!(libver >= 0x10001000UL && libver < 0x1000108fUL) &&
+         !(libver >= 0x10000000UL && libver < 0x100000dfUL)) {
+         SSL_CTX_set_mode(self->ctx, SSL_MODE_RELEASE_BUFFERS);
+@@ -3983,7 +4006,11 @@ PySSL_RAND(int len, int pseudo)
+     if (bytes == NULL)
+         return NULL;
+     if (pseudo) {
++# if OPENSSL_API_COMPAT < 0x10100000L
+         ok = RAND_pseudo_bytes((unsigned char*)PyBytes_AS_STRING(bytes), len);
++# else
++        ok = RAND_bytes((unsigned char*)PyBytes_AS_STRING(bytes), len);
++# endif
+         if (ok == 0 || ok == 1)
+             return Py_BuildValue("NO", bytes, ok == 1 ? Py_True : Py_False);
+     }
+@@ -4629,10 +4656,11 @@ PyInit__ssl(void)
+     if (!socket_api)
+         return NULL;
+     PySocketModule = *socket_api;
+-
++#ifndef OPENSSL_VERSION_1_1
+     /* Init OpenSSL */
+     SSL_load_error_strings();
+     SSL_library_init();
++#endif
+ #ifdef WITH_THREAD
+ #ifdef HAVE_OPENSSL_CRYPTO_LOCK
+     /* note that this will start threading if not already started */
+@@ -4644,7 +4672,13 @@ PyInit__ssl(void)
+     _ssl_locks_count++;
+ #endif
+ #endif  /* WITH_THREAD */
++# if OPENSSL_API_COMPAT < 0x10100000L
+     OpenSSL_add_all_algorithms();
++# else
++    OPENSSL_init_crypto(OPENSSL_INIT_ADD_ALL_CIPHERS
++                        | OPENSSL_INIT_ADD_ALL_DIGESTS
++                        | OPENSSL_INIT_LOAD_CONFIG, NULL);
++#endif
+ 
+     /* Add symbols to module dict */
+     sslerror_type_slots[0].pfunc = PyExc_OSError;
+@@ -4907,7 +4941,11 @@ PyInit__ssl(void)
+     /* SSLeay() gives us the version of the library linked against,
+        which could be different from the headers version.
+     */
++# if OPENSSL_API_COMPAT < 0x10100000L
+     libver = SSLeay();
++# else
++    libver = OpenSSL_version_num();
++# endif
+     r = PyLong_FromUnsignedLong(libver);
+     if (r == NULL)
+         return NULL;
+@@ -4917,7 +4955,11 @@ PyInit__ssl(void)
+     r = Py_BuildValue("IIIII", major, minor, fix, patch, status);
+     if (r == NULL || PyModule_AddObject(m, "OPENSSL_VERSION_INFO", r))
+         return NULL;
++# if (OPENSSL_VERSION_NUMBER < 0x10100000L)
+     r = PyUnicode_FromString(SSLeay_version(SSLEAY_VERSION));
++# else
++    r = PyUnicode_FromString(OpenSSL_version(OPENSSL_VERSION));
++# endif
+     if (r == NULL || PyModule_AddObject(m, "OPENSSL_VERSION", r))
+         return NULL;
+ 
+-- 
+1.9.1
+
