@@ -19,7 +19,7 @@ PKG_VERSION:=$(PYTHON_VERSION).$(PYTHON_VERSION_MICRO)
 
 PKG_SOURCE:=Python-$(PKG_VERSION).tar.xz
 PKG_SOURCE_URL:=https://www.python.org/ftp/python/$(PKG_VERSION)
-PKG_MD5SUM:=f5a99f765e765336a3ebbb2a24ca2be3
+PKG_MD5SUM:=d33e4aae66097051c2eca45ee3604803
 
 PKG_LICENSE:=PSF
 PKG_LICENSE_FILES:=LICENSE Modules/_ctypes/libffi_msvc/LICENSE Modules/_ctypes/darwin/LICENSE Modules/_ctypes/libffi/LICENSE Modules/_ctypes/libffi_osx/LICENSE Tools/pybench/LICENSE
@@ -58,7 +58,7 @@ endef
 define Package/python3-base
 $(call Package/python3/Default)
   TITLE:=Python $(PYTHON_VERSION) interpreter
-  DEPENDS:=+libpthread +zlib
+  DEPENDS:=+libpthread +zlib +libffi +libbz2 +liblzma +libuuid +libreadline +libncurses +libsqlite3 +libdb47 +libncursesw +libpanelw +libgdbm
 endef
 
 define Package/python3-base/description
@@ -69,7 +69,7 @@ endef
 define Package/python3-light
 $(call Package/python3/Default)
   TITLE:=Python $(PYTHON_VERSION) light installation
-  DEPENDS:=+python3-base +libffi +libbz2
+  DEPENDS:=+python3-base +libffi +libbz2 +liblzma +libuuid +libreadline +libncurses +libsqlite3 +libdb47 +libncursesw +libpanelw +libgdbm
 endef
 
 define Package/python3-light/description
@@ -81,19 +81,28 @@ endef
 PYTHON3_LIB_FILES_DEL:=
 PYTHON3_PACKAGES:=
 PYTHON3_SO_SUFFIX:=cpython-$(PYTHON3_VERSION_MAJOR)$(PYTHON3_VERSION_MINOR).so
+PYTHON3_PACKAGES_DEPENDS:=
 define Py3BasePackage
   PYTHON3_PACKAGES+=$(1)
+  ifeq ($(3),)
+    PYTHON3_PACKAGES_DEPENDS+=$(1)
+  endif
   PYTHON3_LIB_FILES_DEL+=$(2)
   define Py3Package/$(1)/filespec
-    $(subst $(space),$(newline),$(foreach lib_file,$(2),+|$(lib_file)))
+    ifneq ($(2),)
+      $(subst $(space),$(newline),$(foreach lib_file,$(2),+|$(lib_file)))
+      -|/usr/lib/python$(PYTHON3_VERSION)/*/test
+      -|/usr/lib/python$(PYTHON3_VERSION)/*/tests
+    endif
   endef
+  Py3Package/$(1)/install?=:
 endef
 
 include ./files/python3-package-*.mk
 
 define Package/python3
 $(call Package/python3/Default)
-  DEPENDS:=+python3-light $(foreach package,$(filter-out python3-dev python3-lib2to3,$(PYTHON3_PACKAGES)),+$(package))
+  DEPENDS:=+python3-light $(foreach package,$(PYTHON3_PACKAGES_DEPENDS),+$(package))
 endef
 
 define Package/python3/description
@@ -187,7 +196,7 @@ define Py3Package/python3-light/filespec
 -|/usr/lib/python$(PYTHON_VERSION)/tkinter
 -|/usr/lib/python$(PYTHON_VERSION)/turtledemo
 -|/usr/lib/python$(PYTHON_VERSION)/lib-dynload/_test*.so
--|/usr/lib/python$(PYTHON_VERSION)/lib-dynload/readline*.so
+# +|/usr/lib/python$(PYTHON_VERSION)/lib-dynload/readline*.so
 -|/usr/lib/python$(PYTHON_VERSION)/pdb.doc
 -|/usr/lib/python$(PYTHON_VERSION)/test
 -|/usr/lib/python$(PYTHON_VERSION)/webbrowser.py

@@ -1,0 +1,25 @@
+From 4a0940598c9af494840ff4bd64d9f21f1bd9ace3 Mon Sep 17 00:00:00 2001
+From: junhuanchen <junhuanchen@qq.com>
+Date: Tue, 23 Mar 2021 20:17:26 +0800
+Subject: [PATCH] fix Modules/_hashopenssl.c
+
+---
+ Modules/_hashopenssl.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Modules/_hashopenssl.c b/Modules/_hashopenssl.c
+index b69f16c61a..b13ade6049 100644
+--- a/Modules/_hashopenssl.c
++++ b/Modules/_hashopenssl.c
+@@ -1073,7 +1073,7 @@ PyInit__hashlib(void)
+ {
+     PyObject *m, *openssl_md_meth_names;
+ 
+-#ifndef OPENSSL_VERSION_1_1
++#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
+     /* Load all digest algorithms and initialize cpuid */
+     OPENSSL_add_all_algorithms_noconf();
+     ERR_load_crypto_strings();
+-- 
+2.25.1
+
