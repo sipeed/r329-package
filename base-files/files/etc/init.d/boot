@@ -181,6 +181,7 @@ boot() {
 	[ -e /dev/root -o -h /dev/root ] || {
 		rootdev=$(awk 'BEGIN { RS=" "; FS="="; } $1 == "root" { print $2 }' < /proc/cmdline)
 		[ -n "$rootdev" ] && ln -s "$rootdev" /dev/root
+    mount -o remount -o rw /dev/root # sdcard rootfs need rw
 	}
 
 	mount_app
