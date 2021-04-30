@@ -35,7 +35,7 @@ define KernelPackage/net-rtl8723bs
 #	CONFIG_R8723BS \
 #	CONFIG_23BS_AP_MODE=y \
 #	CONFIG_23BS_P2P=n
-  FILES:=$(LINUX_DIR)/drivers/net/wireless/rtl8723bs/8723bs.ko
+  FILES:=$(LINUX_DIR)/drivers/net/wireless/rtl8723bs_vq0/8723bs-vq0.ko
   AUTOLOAD:=$(call AutoProbe,8723bs)
 endef
 
