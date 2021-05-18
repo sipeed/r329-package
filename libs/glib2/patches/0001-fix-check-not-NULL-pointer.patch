@@ -1,0 +1,48 @@
+From 34b0253895fce62950ec9a997afda7e0523f7b47 Mon Sep 17 00:00:00 2001
+From: junhuanchen <junhuanchen@qq.com>
+Date: Tue, 18 May 2021 14:47:43 +0800
+Subject: [PATCH] [fix] check not NULL-pointer.
+
+---
+ gio/gdbusauth.c    | 2 +-
+ gio/gdbusmessage.c | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/gio/gdbusauth.c b/gio/gdbusauth.c
+index 4036d77..acbdf1a 100644
+--- a/gio/gdbusauth.c
++++ b/gio/gdbusauth.c
+@@ -1295,7 +1295,7 @@ _g_dbus_auth_run_server (GDBusAuth              *auth,
+                                                     &line_length,
+                                                     cancellable,
+                                                     error);
+-          debug_print ("SERVER: WaitingForBegin, read '%s'", line);
++          if (line) debug_print ("SERVER: WaitingForBegin, read '%s'", line);
+           if (line == NULL)
+             goto out;
+           if (g_strcmp0 (line, "BEGIN") == 0)
+diff --git a/gio/gdbusmessage.c b/gio/gdbusmessage.c
+index d9d8f37..9141554 100644
+--- a/gio/gdbusmessage.c
++++ b/gio/gdbusmessage.c
+@@ -2135,7 +2135,7 @@ g_dbus_message_new_from_blob (guchar                *blob,
+                            signature_str);
+               goto out;
+             }
+-          tupled_signature_str = g_strdup_printf ("(%s)", signature_str);
++          if (signature_str) tupled_signature_str = g_strdup_printf ("(%s)", signature_str);
+           variant_type = g_variant_type_new (tupled_signature_str);
+           g_free (tupled_signature_str);
+ #ifdef DEBUG_SERIALIZER
+@@ -2695,7 +2695,7 @@ g_dbus_message_to_blob (GDBusMessage          *message,
+   if (message->body != NULL)
+     {
+       gchar *tupled_signature_str;
+-      tupled_signature_str = g_strdup_printf ("(%s)", signature_str);
++      if (signature_str) tupled_signature_str = g_strdup_printf ("(%s)", signature_str);
+       if (signature == NULL)
+         {
+           g_set_error (error,
+-- 
+2.25.1
+
