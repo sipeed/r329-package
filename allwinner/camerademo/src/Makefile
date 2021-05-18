@@ -8,7 +8,7 @@ ifeq ($(USE_VIN_ISP),y)
 	LIBS += -lm -lisp -lisp_ini -lAWIspApi
 endif
 
-SRCS = camerademo.c convert.c common.c
+SRCS = camerademo.c convert.c common.c fb_display.c
 OBJS = $(SRCS:.c=.o)
 
 %.o: %.c

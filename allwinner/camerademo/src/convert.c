@@ -928,6 +928,8 @@ int YUVToBMP565(const char *bmp_path, char *yuv_data, ConverFunc func, int width
 	return 0;
 }
 
+#include "fbviewer.h"
+
 int YUVToBMP(const char *bmp_path, char *yuv_data, ConverFunc func, int width, int height)
 {
 	unsigned char *rgb_24 = NULL;
@@ -970,6 +972,8 @@ int YUVToBMP(const char *bmp_path, char *yuv_data, ConverFunc func, int width, i
 
 	func(rgb_24, yuv_data, width, height);
 
+    fb_display(rgb_24, 0, width, height, 0, 0, (240 - width) / 2, (240 - height) / 2);
+    
 	/* Create bmp file */
 	fp = fopen(bmp_path, "wb+");
 	if (!fp) {

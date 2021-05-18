@@ -1525,11 +1525,11 @@ SET_FORMAT:
 		return -1;
 	}
 
-	camera_dbg("***************************************************************\n");
-	camera_dbg(" Performance Testing---format:%s size:%u * %u\n", get_format_name(camera.pixelformat),
-		   camera.win_width, camera.win_height);
-	camera_dbg(" The interval from open to streaming is %lld ms.\n", test_time(&camera));
-	camera_dbg("***************************************************************\n");
+	// camera_dbg("***************************************************************\n");
+	// camera_dbg(" Performance Testing---format:%s size:%u * %u\n", get_format_name(camera.pixelformat),
+	// 	   camera.win_width, camera.win_height);
+	// camera_dbg(" The interval from open to streaming is %lld ms.\n", test_time(&camera));
+	// camera_dbg("***************************************************************\n");
 
 	return 0;
 }
