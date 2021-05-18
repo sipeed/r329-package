@@ -33,6 +33,12 @@ Cython is an optimising static compiler for both the Python programming language
 endef
 
 define Build/Compile
+	$(call HostPython3, \
+		__PYVENV_LAUNCHER__="/usr/bin/$(PYTHON3)" \
+		$(3) \
+		, \
+		-m pip install cython --root="/" --prefix="$(OUT_DIR)/host" \
+	)
 	$(call Build/Compile/Py3Mod,,\
 		install --root="$(PKG_INSTALL_DIR)" --prefix="/usr" \
 	)
